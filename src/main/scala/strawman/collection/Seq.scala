@@ -16,6 +16,8 @@ trait Seq[+A] extends Iterable[A] with SeqOps[A, Seq, Seq[A]] {
   protected[this] def seq: this.type = this
 }
 
+object Seq extends IterableFactory.Delegate[Seq](immutable.Seq)
+
 /** Base trait for Seq operations */
 trait SeqOps[+A, +CC[X], +C] extends Any
   with IterableOps[A, CC, C]
@@ -432,6 +434,25 @@ trait SeqOps[+A, +CC[X], +C] extends Any
   def sameElements[B >: A](that: IterableOnce[B]): Boolean =
     coll.iterator().sameElements(that)
 
+  /** Tests whether every element of this $coll relates to the
+    * corresponding element of another sequence by satisfying a test predicate.
+    *
+    *  @param   that  the other sequence
+    *  @param   p     the test predicate, which relates elements from both sequences
+    *  @tparam  B     the type of the elements of `that`
+    *  @return  `true` if both sequences have the same length and
+    *                  `p(x, y)` is `true` for all corresponding elements `x` of this $coll
+    *                  and `y` of `that`, otherwise `false`.
+    */
+  def corresponds[B](that: Seq[B])(p: (A, B) => Boolean): Boolean = {
+    val i = coll.iterator()
+    val j = that.iterator()
+    while (i.hasNext && j.hasNext)
+      if (!p(i.next(), j.next()))
+        return false
+    !i.hasNext && !j.hasNext
+  }
+
   /** Method called from equality methods, so that user-defined subclasses can
     *  refuse to be equal to other collections of the same kind.
     *  @param   that   The object with which this $coll should be compared
@@ -626,3 +647,5 @@ object SeqOps {
   }
 }
 
+/** Explicit instantiation of the `Seq` trait to reduce class file size in subclasses. */
+abstract class AbstractSeq[+A] extends AbstractIterable[A] with Seq[A]

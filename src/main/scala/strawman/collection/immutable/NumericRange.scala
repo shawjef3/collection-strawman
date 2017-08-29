@@ -1,7 +1,7 @@
 package strawman.collection.immutable
 
 import strawman.collection
-import strawman.collection.{IterableFactory, IterableOnce, Iterator, StrictOptimizedIterableOps}
+import strawman.collection.{IterableFactory, IterableOnce, Iterator, StrictOptimizedIterableOps, arrayToArrayOps}
 
 import scala.{Any, Boolean, ClassCastException, IllegalArgumentException, IndexOutOfBoundsException, Int, Integral, NoSuchElementException, Numeric, Ordering, Serializable, StringContext, Unit, `inline`, math, specialized, throws}
 import scala.Predef.ArrowAssoc
@@ -30,7 +30,7 @@ import strawman.collection.mutable.Builder
   *  @define mayNotTerminateInf
   *  @define willNotTerminateInf
   */
-final class NumericRange[T](
+sealed class NumericRange[T](
   val start: T,
   val end: T,
   val step: T,
@@ -67,7 +67,8 @@ final class NumericRange[T](
   override def head: T = if (isEmpty) Nil.head else start
   override def tail: NumericRange[T] =
     if (isEmpty) Nil.tail
-    else new NumericRange(start + step, end, step, isInclusive)
+    else if(isInclusive) new NumericRange.Inclusive(start + step, end, step)
+    else new NumericRange.Exclusive(start + step, end, step)
 
   /** Create a new range with the start and end values of this range and
     *  a new `step`.
@@ -78,7 +79,7 @@ final class NumericRange[T](
   /** Create a copy of this range.
     */
   def copy(start: T, end: T, step: T): NumericRange[T] =
-    new NumericRange[T](start, end, step, isInclusive)
+    new NumericRange(start, end, step, isInclusive)
 
   @throws[IndexOutOfBoundsException]
   def apply(idx: Int): T = {
@@ -86,7 +87,7 @@ final class NumericRange[T](
     else locationAfterN(idx)
   }
 
-  @`inline` override def foreach[@specialized(Unit) U](f: T => U): Unit = {
+  override def foreach[@specialized(Unit) U](f: T => U): Unit = {
     var count = 0
     var current = start
     while (count < length) {
@@ -116,22 +117,22 @@ final class NumericRange[T](
   // based on the given value.
   private def newEmptyRange(value: T) = NumericRange(value, value, step)
 
-  override def take(n: Int): NumericRange[T] = (
+  override def take(n: Int): NumericRange[T] = {
     if (n <= 0 || length == 0) newEmptyRange(start)
     else if (n >= length) this
-    else new NumericRange(start, locationAfterN(n - 1), step, isInclusive = true)
-    )
+    else new NumericRange.Inclusive(start, locationAfterN(n - 1), step)
+  }
 
-  override def drop(n: Int): NumericRange[T] = (
+  override def drop(n: Int): NumericRange[T] = {
     if (n <= 0 || length == 0) this
     else if (n >= length) newEmptyRange(end)
     else copy(locationAfterN(n), end, step)
-    )
+  }
 
   override def splitAt(n: Int): (NumericRange[T], NumericRange[T]) = (take(n), drop(n))
 
   override def reverse: NumericRange[T] =
-    if (isEmpty) this else new NumericRange(last, start, -step, isInclusive = true)
+    if (isEmpty) this else new NumericRange.Inclusive(last, start, -step)
 
   import NumericRange.defaultOrdering
 
@@ -169,25 +170,25 @@ final class NumericRange[T](
   //
   //   (0.1 to 0.3 by 0.1 contains 0.3) == true
   //
-//  private[immutable] def mapRange[A](fm: T => A)(implicit unum: Integral[A]): NumericRange[A] = {
-//    val self = this
-//
-//    // XXX This may be incomplete.
-//    new NumericRange[A](fm(start), fm(end), fm(step), isInclusive) {
-//
-//      private lazy val underlyingRange: NumericRange[T] = self
-//      override def foreach(f: A => Unit) { underlyingRange foreach (x => f(fm(x))) }
-//      override def isEmpty = underlyingRange.isEmpty
-//      override def apply(idx: Int): A = fm(underlyingRange(idx))
-//      override def containsTyped(el: A) = underlyingRange exists (x => fm(x) == el)
-//
-//      override def toString = {
-//        def simpleOf(x: Any): String = x.getClass.getName.split("\\.").last
-//        val stepped = simpleOf(underlyingRange.step)
-//        s"${super.toString} (using $underlyingRange of $stepped)"
-//      }
-//    }
-//  }
+  private[immutable] def mapRange[A](fm: T => A)(implicit unum: Integral[A]): NumericRange[A] = {
+    val self = this
+
+    // XXX This may be incomplete.
+    new NumericRange[A](fm(start), fm(end), fm(step), isInclusive) {
+
+      private lazy val underlyingRange: NumericRange[T] = self
+      override def foreach[@specialized(Unit) U](f: A => U): Unit = { underlyingRange foreach (x => f(fm(x))) }
+      override def isEmpty = underlyingRange.isEmpty
+      override def apply(idx: Int): A = fm(underlyingRange(idx))
+      override def containsTyped(el: A) = underlyingRange exists (x => fm(x) == el)
+
+      override def toString = {
+        def simpleOf(x: Any): String = x.getClass.getName.split("\\.").last
+        val stepped = simpleOf(underlyingRange.step)
+        s"${super.toString} (using $underlyingRange of $stepped)"
+      }
+    }
+  }
 
   // a well-typed contains method.
   def containsTyped(x: T): Boolean =
@@ -376,10 +377,26 @@ object NumericRange {
     }
   }
 
-  def apply[T](start: T, end: T, step: T)(implicit num: Integral[T]): NumericRange[T] =
-    new NumericRange[T](start, end, step, isInclusive = false)
-  def inclusive[T](start: T, end: T, step: T)(implicit num: Integral[T]): NumericRange[T] =
-    new NumericRange[T](start, end, step, isInclusive = true)
+  class Inclusive[T](start: T, end: T, step: T)(implicit num: Integral[T])
+    extends NumericRange(start, end, step, true) {
+    override def copy(start: T, end: T, step: T): Inclusive[T] =
+      NumericRange.inclusive(start, end, step)
+
+    def exclusive: Exclusive[T] = NumericRange(start, end, step)
+  }
+
+  class Exclusive[T](start: T, end: T, step: T)(implicit num: Integral[T])
+    extends NumericRange(start, end, step, false) {
+    override def copy(start: T, end: T, step: T): Exclusive[T] =
+      NumericRange(start, end, step)
+
+    def inclusive: Inclusive[T] = NumericRange.inclusive(start, end, step)
+  }
+
+  def apply[T](start: T, end: T, step: T)(implicit num: Integral[T]): Exclusive[T] =
+    new Exclusive(start, end, step)
+  def inclusive[T](start: T, end: T, step: T)(implicit num: Integral[T]): Inclusive[T] =
+    new Inclusive(start, end, step)
 
   private[collection] val defaultOrdering = Map[Numeric[_], Ordering[_]](
     Numeric.BigIntIsIntegral -> Ordering.BigInt,

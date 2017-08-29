@@ -2,6 +2,7 @@ package strawman.collection
 package mutable
 
 import scala.annotation.unchecked.uncheckedVariance
+import scala.annotation.tailrec
 import scala.{Any, Boolean, Int, Unit, throws}
 import scala.Int._
 import strawman.collection
@@ -12,7 +13,7 @@ import scala.Predef.{assert, intWrapper}
 
 /** Concrete collection type: ListBuffer */
 class ListBuffer[A]
-  extends GrowableSeq[A]
+  extends Buffer[A]
      with SeqOps[A, ListBuffer, ListBuffer[A]]
      with StrictOptimizedSeqOps[A, ListBuffer, ListBuffer[A]] {
 
@@ -47,7 +48,7 @@ class ListBuffer[A]
   private def ensureUnaliased() = if (aliased) copyElems()
 
   /** Convert to list; avoids copying where possible. */
-  def toList = {
+  override def toList: List[A] = {
     aliased = true
     first
   }
@@ -115,6 +116,11 @@ class ListBuffer[A]
     }
   }
 
+  def prepend(elem: A): this.type = {
+    insert(0, elem)
+    this
+  }
+
   private def insertAfter(p: Predecessor[A], it: Iterator[A]) = {
     var prev = p
     val follow = getNext(prev)
@@ -153,6 +159,25 @@ class ListBuffer[A]
       if (idx < 0 || idx + n > len) throw new IndexOutOfBoundsException
       removeAfter(locate(idx), n)
     }
+
+  def subtract(elem: A): this.type = {
+    ensureUnaliased()
+    @tailrec def locatePred(curr: List[A], pred: List[A]): List[A] = curr match {
+      case Nil => Nil
+      case x :: xs =>
+        if(x == elem) pred
+        else locatePred(xs, curr)
+    }
+    locatePred(first, null) match {
+      case Nil =>
+      case l =>
+        val p = l.asInstanceOf[Predecessor[A]]
+        len -= 1
+        val nx = getNext(p)
+        setNext(p, nx.tail)
+    }
+    this
+  }
 
   private def removeAfter(prev: Predecessor[A], n: Int) = {
     @tailrec def ahead(p: List[A], n: Int): List[A] =

@@ -46,6 +46,7 @@ trait SetOps[A, +CC[X], +C <: Set[A] with SetOps[A, Set, C]]
   def diff(that: collection.Set[A]): C =
     coll.foldLeft(empty)((result, elem) => if (that contains elem) result else result + elem)
 
+  override def toSet[B >: A]: Set[B] = this.asInstanceOf[Set[B]]
 }
 
 object Set extends IterableFactory.Delegate[Set](HashSet)

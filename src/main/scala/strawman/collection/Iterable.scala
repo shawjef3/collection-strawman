@@ -3,7 +3,7 @@ package collection
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.ClassTag
-import scala.{Any, Array, Boolean, `inline`, Int, None, Numeric, Option, Ordering, PartialFunction, StringContext, Some, Unit}
+import scala.{Any, Array, Boolean, `inline`, Int, None, Numeric, Option, Ordering, PartialFunction, StringContext, Some, Unit, deprecated}
 import java.lang.{String, UnsupportedOperationException}
 import scala.Predef.<:<
 
@@ -11,7 +11,7 @@ import strawman.collection.mutable.{ArrayBuffer, Builder, StringBuilder}
 import java.lang.String
 
 /** Base trait for generic collections */
-trait Iterable[+A] extends IterableOnce[A] with IterableOps[A, Iterable, Iterable[A]] {
+trait Iterable[+A] extends IterableOnce[A] with IterableOps[A, Iterable, Iterable[A]] with Traversable[A] {
 
   /** The collection itself */
   protected[this] def coll: this.type = this
@@ -28,7 +28,7 @@ trait Iterable[+A] extends IterableOnce[A] with IterableOps[A, Iterable, Iterabl
   *  are the same. We cannot express this since we lack variance polymorphism. That's
   *  why we have to resort at some places to write `C[A @uncheckedVariance]`.
   */
-trait IterableOps[+A, +CC[X], +C] extends Any {
+trait IterableOps[+A, +CC[_], +C] extends Any with IterableOnce[A] {
 
   protected[this] def coll: Iterable[A]
 
@@ -103,6 +103,9 @@ trait IterableOps[+A, +CC[X], +C] extends Any {
 
   /** Fold right */
   def foldRight[B](z: B)(op: (A, B) => B): B = coll.iterator().foldRight(z)(op)
+
+  @`inline` final def /: [B](z: B)(op: (B, A) => B): B = foldLeft[B](z)(op)
+  @`inline` final def :\ [B](z: B)(op: (A, B) => B): B = foldRight[B](z)(op)
 
   /** Reduces the elements of this $coll using the specified associative binary operator.
    *
@@ -253,6 +256,13 @@ trait IterableOps[+A, +CC[X], +C] extends Any {
     */
   def to[C1](f: CanBuild[A, C1]): C1 = f.fromSpecificIterable(coll)
 
+  def toList: immutable.List[A] = immutable.List.fromSpecificIterable(coll)
+
+  def toMap[T, U](implicit ev: A <:< (T, U)): immutable.Map[T, U] =
+    immutable.Map.fromIterable(coll.asInstanceOf[Iterable[(T, U)]])
+
+  def toSet[B >: A]: immutable.Set[B] = immutable.Set.fromIterable(coll)
+
   /** Convert collection to array. */
   def toArray[B >: A: ClassTag]: Array[B] =
     if (knownSize >= 0) copyToArray(new Array[B](knownSize), 0)
@@ -273,8 +283,22 @@ trait IterableOps[+A, +CC[X], +C] extends Any {
     *  Collections generally print like this:
     *
     *       <className>(elem_1, ..., elem_n)
+    *
+    *  @return  a string representation which starts the result of `toString`
+    *           applied to this $coll. By default the string prefix is the
+    *           simple name of the collection class $coll.
     */
-  def className = getClass.getName
+  def className: String = {
+    var string = coll.getClass.getName
+    val idx1 = string.lastIndexOf('.' : Int)
+    if (idx1 != -1) string = string.substring(idx1 + 1)
+    val idx2 = string.indexOf('$')
+    if (idx2 != -1) string = string.substring(0, idx2)
+    string
+  }
+
+  @deprecated("Use className instead of stringPrefix", "2.13.0")
+  @`inline` final def stringPrefix: String = className
 
   /** A string showing all elements of this collection, separated by string `sep`. */
   def mkString(start: String, sep: String, end: String): String = {
@@ -294,7 +318,7 @@ trait IterableOps[+A, +CC[X], +C] extends Any {
 
   def mkString: String = mkString("")
 
-  override def toString = s"$className(${mkString(", ")})"
+  override def toString = mkString(className + "(", ", ", ")")
 
 
   /** Sums up the elements of this collection.
@@ -868,3 +892,5 @@ trait IterableOps[+A, +CC[X], +C] extends Any {
 }
 
 object Iterable extends IterableFactory.Delegate[Iterable](immutable.Iterable)
+
+abstract class AbstractIterable[+A] extends Iterable[A]

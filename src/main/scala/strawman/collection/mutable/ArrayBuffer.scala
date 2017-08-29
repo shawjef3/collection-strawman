@@ -9,7 +9,8 @@ import scala.Predef.intWrapper
 
 /** Concrete collection type: ArrayBuffer */
 class ArrayBuffer[A] private (initElems: Array[AnyRef], initLength: Int)
-  extends IndexedSeq[A]
+  extends Buffer[A]
+    with IndexedSeq[A]
     with IndexedSeqOps[A, ArrayBuffer, ArrayBuffer[A]]
     with IndexedOptimizedGrowableSeq[A]
     with StrictOptimizedSeqOps[A, ArrayBuffer, ArrayBuffer[A]] {
@@ -83,6 +84,11 @@ class ArrayBuffer[A] private (initElems: Array[AnyRef], initLength: Int)
     this(idx) = elem
   }
 
+  def prepend(elem: A): this.type = {
+    insert(0, elem)
+    this
+  }
+
   def insertAll(idx: Int, elems: IterableOnce[A]): Unit = {
     checkWithinBounds(idx, idx)
     elems match {
@@ -121,6 +127,12 @@ class ArrayBuffer[A] private (initElems: Array[AnyRef], initLength: Int)
       Array.copy(array, from + n, array, from, end - (from + n))
       reduceToSize(end - n)
     }
+
+  def subtract(elem: A): this.type = {
+    val idx = indexOf(elem)
+    if(idx >= 0) remove(idx)
+    this
+  }
 
   override def className = "ArrayBuffer"
 }

@@ -28,3 +28,6 @@ trait GrowableIterable[A]
   def filterInPlace(p: A => Boolean): this.type
 
 }
+
+/** Explicit instantiation of the `Iterable` trait to reduce class file size in subclasses. */
+abstract class AbstractIterable[A] extends strawman.collection.AbstractIterable[A] with Iterable[A]

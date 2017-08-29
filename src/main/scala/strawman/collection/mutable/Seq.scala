@@ -96,3 +96,5 @@ trait IndexedOptimizedGrowableSeq[A] extends IndexedOptimizedSeq[A] with Growabl
   }
 }
 
+/** Explicit instantiation of the `Seq` trait to reduce class file size in subclasses. */
+abstract class AbstractSeq[A] extends strawman.collection.AbstractSeq[A] with Seq[A]

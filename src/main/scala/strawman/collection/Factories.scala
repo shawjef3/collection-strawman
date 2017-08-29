@@ -5,7 +5,7 @@ import scala.language.implicitConversions
 
 import strawman.collection.mutable.Builder
 
-import scala.{Any, Int, Nothing, Ordering}
+import scala.{Any, Int, Nothing, Ordering, deprecated, `inline`, Some}
 import scala.annotation.unchecked.uncheckedVariance
 
 
@@ -22,6 +22,9 @@ trait BuildFrom[-From, -A, +C] extends Any {
   /** Get a Builder for the collection. For non-strict collection types this will use an intermediate buffer.
     * Building collections with `fromSpecificIterable` is preferred because it can be lazy for lazy collections. */
   def newBuilder(from: From): Builder[A, C]
+
+  @deprecated("Use newBuilder() instead of apply()", "2.13.0")
+  @`inline` def apply(from: From): Builder[A, C] = newBuilder(from)
 }
 
 /**
@@ -44,6 +47,7 @@ trait IterableFactory[+CC[_]] {
   def fill[A](n: Int)(elem: => A): CC[A] = fromIterable(View.Fill(n)(elem))
   def newBuilder[A](): Builder[A, CC[A]]
   implicit def canBuildIterable[A]: CanBuild[A, CC[A]] = IterableFactory.toCanBuild(this)
+  def unapplySeq[A](x: CC[A] @uncheckedVariance): Some[CC[A]] = Some(x) //TODO is uncheckedVariance sound here?
 }
 
 object IterableFactory {

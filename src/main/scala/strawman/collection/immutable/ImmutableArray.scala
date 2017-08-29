@@ -4,7 +4,7 @@ package collection.immutable
 import strawman.collection.mutable.{ArrayBuffer, Builder, GrowableBuilder}
 import strawman.collection.{IterableFactory, IterableOnce, Iterator, StrictOptimizedIterableOps, View}
 
-import scala.{Any, ArrayIndexOutOfBoundsException, Boolean, Int, Nothing, throws}
+import scala.{Any, ArrayIndexOutOfBoundsException, Boolean, Int, Nothing, throws, Array, AnyRef}
 import scala.runtime.ScalaRunTime
 import scala.Predef.{???, intWrapper}
 
@@ -111,6 +111,9 @@ object ImmutableArray extends IterableFactory[ImmutableArray] {
 
   def fromArrayBuffer[A](arr: ArrayBuffer[A]): ImmutableArray[A] =
     new ImmutableArray[A](arr.asInstanceOf[ArrayBuffer[Any]].toArray)
+
+  def wrapArray[A <: AnyRef](arr: Array[A]): ImmutableArray[A] =
+    new ImmutableArray[A](arr.asInstanceOf[Array[Any]])
 
   def fromIterable[A](it: strawman.collection.Iterable[A]): ImmutableArray[A] =
     fromArrayBuffer(ArrayBuffer.fromIterable(it))

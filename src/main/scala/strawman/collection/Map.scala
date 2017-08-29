@@ -213,3 +213,6 @@ trait MapOps[K, +V, +CC[X, Y] <: Map[X, Y], +C <: Map[K, V]]
 }
 
 object Map extends MapFactory.Delegate[Map](immutable.Map)
+
+/** Explicit instantiation of the `Map` trait to reduce class file size in subclasses. */
+abstract class AbstractMap[A, +B] extends AbstractIterable[(A, B)] with Map[A, B]

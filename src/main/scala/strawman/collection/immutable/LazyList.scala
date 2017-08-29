@@ -93,6 +93,16 @@ object LazyList extends IterableFactory[LazyList] {
     loop(init)
   }
 
+  /**
+    * Create an infinite LazyList containing the given element expression (which
+    * is computed for each occurrence).
+    *
+    * @param elem the element composing the resulting stream
+    * @return the LazyList containing an infinite number of elem
+    */
+  def continually[A](elem: => A): LazyList[A] = new LazyList(Some((elem, continually(elem))))
+
   def newBuilder[A](): Builder[A, LazyList[A]] = ArrayBuffer.newBuilder[A]().mapResult(fromIterable)
 
+  def cons[A, B >: A](x: => B, xs: => LazyList[A]): LazyList[B] = new LazyList(Some(x, xs))
 }

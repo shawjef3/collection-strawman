@@ -2,7 +2,7 @@ package strawman
 package collection.mutable
 
 import strawman.collection.IterableOnce
-import scala.{`inline`, Unit}
+import scala.{`inline`, Unit, deprecated}
 import scala.annotation.tailrec
 import strawman.collection.{toOldSeq, toNewSeq}
 
@@ -21,6 +21,10 @@ trait Growable[-A] {
 
   /** Alias for `add` */
   @`inline` final def += (elem: A): this.type = add(elem)
+
+  //TODO This causes a conflict in StringBuilder; looks like a compiler bug
+  //@deprecated("Use add or += instead of append", "2.13.0")
+  //@`inline` final def append(elem: A): Unit = add(elem)
 
   /** ${Add}s two or more elements to this $coll.
    *

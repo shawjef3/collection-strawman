@@ -79,3 +79,6 @@ trait SetOps[A, +CC[X], +C <: Set[A]]
 }
 
 object Set extends IterableFactory.Delegate[Set](HashSet)
+
+/** Explicit instantiation of the `Set` trait to reduce class file size in subclasses. */
+abstract class AbstractSet[A] extends AbstractIterable[A] with Set[A]
