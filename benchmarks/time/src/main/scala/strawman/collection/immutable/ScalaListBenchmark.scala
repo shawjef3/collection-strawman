@@ -292,4 +292,10 @@ class ScalaListBenchmark {
     val result = xs.groupBy(_ % 5)
     bh.consume(result)
   }
+
+  @Benchmark
+  def fill(bh: Blackhole): Unit = {
+    val result = List.fill(size)(())
+    bh.consume(result)
+  }
 }
